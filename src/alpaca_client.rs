@@ -2,12 +2,12 @@ use super::csv_handler::ZacksBuys;
 use apca::{
     api::v2::{
         account,
-        asset::{self, Id},
+        asset::{self},
         clock, order,
         position::{self, Position},
         positions,
     },
-    ApiError, ApiInfo, Client,
+    Client,
 };
 use futures::{stream, StreamExt};
 use log::info;
@@ -94,7 +94,15 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
                     continue;
                 }
             };
-            match market_val > &(desired_allocation + rebalance_threshold).into() {
+
+            let is_within_rebalance_threshold = (market_val + rebalance_threshold)
+                < desired_allocation.into()
+                || (market_val - rebalance_threshold) > desired_allocation.into();
+            if is_within_rebalance_threshold {
+                continue;
+            };
+
+            match market_val > &desired_allocation.into() {
                 true => sell.push(position),
                 false => buy.push(position),
             }
@@ -122,7 +130,12 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
         .collect::<Vec<_>>()
         .await;
 
-    info!("Liquidated positions: {:#?}", liquidated_positions);
+        info!(
+            "Liquidated positions length: {:#?}\n
+            Liquidated positions: {:#?}",
+            liquidated_positions.len(),
+            liquidated_positions
+        );
 
     let balanced_down_positions = stream::iter(sell)
         .map(|position| {
@@ -145,7 +158,12 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
         .collect::<Vec<_>>()
         .await;
 
-    info!("Balanced down positions: {:#?}", balanced_down_positions);
+        info!(
+            "Balanced down positions length: {:#?}\n
+            Balanced down positions: {:#?}",
+            balanced_down_positions.len(),
+            balanced_down_positions
+        );
 
     let balanced_up_positions = stream::iter(buy)
         .map(|position| {
@@ -168,7 +186,12 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
         .collect::<Vec<_>>()
         .await;
 
-    info!("Balanced up positions: {:#?}", balanced_up_positions);
+    info!(
+        "Balanced up positions length: {:#?}\n
+        Balanced up positions: {:#?}",
+        balanced_up_positions.len(),
+        balanced_up_positions
+    );
 
     let completely_bought_positions = stream::iter(buy_complete)
         .map(|position| {
@@ -190,7 +213,12 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
         .collect::<Vec<_>>()
         .await;
 
-    info!("Completely bought positions: {:#?}", completely_bought_positions);
+    info!(
+        "Completely bought length: {:#?}\n
+        Completely bought positions: {:#?}",
+        completely_bought_positions.len(),
+        completely_bought_positions
+    );
 }
 
 pub async fn get_valid_stocks_from_list(
@@ -211,7 +239,7 @@ pub async fn get_valid_stocks_from_list(
 
     let assets_vector = bodies.collect::<Vec<_>>().await;
 
-    info!("all assets from alpaca: {:#?}", assets_vector.len());
+    info!("all assets from alpaca length: {:#?}", assets_vector.len());
 
     let filtered_assets: Vec<asset::Asset> = assets_vector
         .into_iter()
@@ -219,7 +247,6 @@ pub async fn get_valid_stocks_from_list(
         .filter(|asset| asset.tradable && asset.fractionable)
         .collect();
 
-    info!("All filtered assets: {:#?}", filtered_assets);
     info!("length of filtered assets: {:#?}", filtered_assets.len());
 
     filtered_assets

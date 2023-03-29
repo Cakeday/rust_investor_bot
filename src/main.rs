@@ -1,12 +1,11 @@
 use apca::{ApiInfo, Client as AlpacaClient};
 use dotenv::dotenv;
 use flexi_logger::{FileSpec, Logger, Duplicate};
-use reqwest::Client;
-use log::{info};
+use log::{info, warn};
+use std::process;
 
 mod alpaca_client;
 mod csv_handler;
-mod zacks_api;
 
 #[tokio::main]
 async fn main() {
@@ -22,20 +21,19 @@ async fn main() {
         .start()
         .unwrap();
 
-    let client = Client::new();
     let api_info = ApiInfo::from_env().unwrap();
     let alpaca_client = AlpacaClient::new(api_info);
 
-    let cookie = zacks_api::get_initial_zacks_cookie(&client).await;
-    info!("here is the cookie: {:?}", cookie);
-    zacks_api::login_on_zacks(&client, &cookie).await;
-    zacks_api::get_run_screen_data(&client, &cookie).await;
-
-    let csv_list = zacks_api::get_csv_list(&client, &cookie).await;
-
-
+    let csv_list = csv_handler::read_csv();
 
     let zacks_buys = csv_handler::parse_csv(csv_list);
+
+    info!("Zacks Buys: {:#?}", zacks_buys);
+
+    if zacks_buys.list.len() < 1 {
+        warn!("There were no buys in zacks buys!");
+        process::exit(1);
+    }
 
     alpaca_client::get_account(&alpaca_client).await;
     alpaca_client::are_markets_open(&alpaca_client).await;
