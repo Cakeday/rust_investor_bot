@@ -28,7 +28,7 @@ async fn main() {
 
     let zacks_buys = csv_handler::parse_csv(csv_list);
 
-    info!("Zacks Buys: {:#?}", zacks_buys);
+    // info!("Zacks Buys: {:#?}", zacks_buys);
 
     if zacks_buys.list.len() < 1 {
         warn!("There were no buys in zacks buys!");

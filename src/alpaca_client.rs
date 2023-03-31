@@ -32,7 +32,7 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
 
     info!("account deets: {:#?}", account);
 
-    let buying_power = (account.equity.to_f64().unwrap() * 0.95) as i32;
+    let buying_power = (account.equity.to_f64().unwrap() * 0.98) as i32;
     info!("current buying power: {buying_power}");
 
     let rebalance_threshold = (buying_power as f64 * 0.001).round() as i32;
@@ -95,10 +95,13 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
                 }
             };
 
-            let is_within_rebalance_threshold = (market_val + rebalance_threshold)
-                < desired_allocation.into()
-                || (market_val - rebalance_threshold) > desired_allocation.into();
+            let is_within_rebalance_threshold =
+                ((market_val - desired_allocation).to_f64().unwrap().abs())
+                    < rebalance_threshold.into();
+
             if is_within_rebalance_threshold {
+                // info!("{:#?} is within rebalance threshold", position.symbol);
+                // info!("{:#?}", (market_val));
                 continue;
             };
 
@@ -130,12 +133,12 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
         .collect::<Vec<_>>()
         .await;
 
-        info!(
-            "Liquidated positions length: {:#?}\n
+    info!(
+        "Liquidated positions length: {:#?}\n
             Liquidated positions: {:#?}",
-            liquidated_positions.len(),
-            liquidated_positions
-        );
+        liquidated_positions.len(),
+        liquidated_positions
+    );
 
     let balanced_down_positions = stream::iter(sell)
         .map(|position| {
@@ -158,12 +161,12 @@ pub async fn balance_portfolio(client: &Client, valid_zacks_buys: Vec<asset::Ass
         .collect::<Vec<_>>()
         .await;
 
-        info!(
-            "Balanced down positions length: {:#?}\n
+    info!(
+        "Balanced down positions length: {:#?}\n
             Balanced down positions: {:#?}",
-            balanced_down_positions.len(),
-            balanced_down_positions
-        );
+        balanced_down_positions.len(),
+        balanced_down_positions
+    );
 
     let balanced_up_positions = stream::iter(buy)
         .map(|position| {
